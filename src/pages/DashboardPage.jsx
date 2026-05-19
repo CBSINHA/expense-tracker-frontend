@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import toast from "react-hot-toast";
 
 import api from "../services/api";
@@ -8,32 +9,85 @@ function DashboardPage() {
 
     const navigate = useNavigate();
 
-    const [expenses, setExpenses] = useState([]);
+    const [expenses, setExpenses] =
+        useState([]);
 
-    const [title, setTitle] = useState("");
-    const [amount, setAmount] = useState("");
-    const [category, setCategory] = useState("");
-    const [customCategory, setCustomCategory] =
+    const [title, setTitle] =
         useState("");
-    const [date, setDate] = useState("");
 
-    // total expenses
-    const totalExpenses = expenses.reduce(
-        (total, expense) =>
-            total + expense.amount,
-        0
-    );
+    const [amount, setAmount] =
+        useState("");
 
-    // fetch expenses
+    const [category, setCategory] =
+        useState("");
+
+    const [
+        customCategory,
+        setCustomCategory
+    ] = useState("");
+
+    const [date, setDate] =
+        useState("");
+
+    const [searchKeyword,
+        setSearchKeyword] =
+        useState("");
+
+    const [filterCategory,
+        setFilterCategory] =
+        useState("");
+
+    const [
+        customFilterCategory,
+        setCustomFilterCategory
+    ] = useState("");
+
+    const [page, setPage] =
+        useState(0);
+
+    const [sizeInput, setSizeInput] =
+        useState("5");
+
+    const totalExpenses =
+        expenses.reduce(
+            (total, expense) =>
+                total + expense.amount,
+            0
+        );
+
+    // fetch paginated expenses
+
     async function fetchExpenses() {
 
         try {
 
-            const response = await api.get(
-                "/expenses"
-            );
+            // show all entries
 
-            setExpenses(response.data);
+            if (
+                sizeInput.toLowerCase() === "all"
+            ) {
+
+                const response =
+                    await api.get(
+                        "/expenses"
+                    );
+
+                setExpenses(response.data);
+
+                return;
+            }
+
+            const parsedSize =
+                Number(sizeInput);
+
+            const response =
+                await api.get(
+                    `/expenses/paginated?page=${page}&size=${parsedSize}`
+                );
+
+            setExpenses(
+                response.data.content
+            );
 
         } catch (error) {
 
@@ -49,6 +103,7 @@ function DashboardPage() {
     }
 
     // add expense
+
     async function handleAddExpense(e) {
 
         e.preventDefault();
@@ -67,7 +122,8 @@ function DashboardPage() {
                         : category,
             };
 
-            // only send date if selected
+            // optional date
+
             if (date !== "") {
 
                 payload.date = date;
@@ -83,13 +139,13 @@ function DashboardPage() {
             );
 
             // clear form
+
             setTitle("");
             setAmount("");
             setCategory("");
             setCustomCategory("");
             setDate("");
 
-            // refresh expenses
             fetchExpenses();
 
         } catch (error) {
@@ -106,6 +162,7 @@ function DashboardPage() {
     }
 
     // delete expense
+
     async function handleDelete(id) {
 
         try {
@@ -133,12 +190,117 @@ function DashboardPage() {
         }
     }
 
+    // search expenses
+
+    async function handleSearch() {
+
+        try {
+
+            if (
+                searchKeyword.trim() === ""
+            ) {
+
+                fetchExpenses();
+                return;
+            }
+
+            const response =
+                await api.get(
+                    `/expenses/search?keyword=${searchKeyword}`
+                );
+
+            setExpenses(response.data);
+
+        } catch (error) {
+
+            console.log(
+                error.response?.data ||
+                error.message
+            );
+
+            toast.error(
+                "Search Failed"
+            );
+        }
+    }
+
+    // filter expenses
+
+    async function handleFilter() {
+
+        try {
+
+            if (
+                filterCategory === ""
+            ) {
+
+                fetchExpenses();
+                return;
+            }
+
+            const categoryToFilter =
+
+                filterCategory === "Other"
+                    ? customFilterCategory
+                    : filterCategory;
+
+            const response =
+                await api.get(
+                    `/expenses/category/${categoryToFilter}`
+                );
+
+            setExpenses(response.data);
+
+        } catch (error) {
+
+            console.log(
+                error.response?.data ||
+                error.message
+            );
+
+            toast.error(
+                "Filter Failed"
+            );
+        }
+    }
+
+    // sort expenses
+
+    async function handleSort(field) {
+
+        try {
+
+            const response =
+                await api.get(
+                    `/expenses/sorted/${field}`
+                );
+
+            setExpenses(response.data);
+
+        } catch (error) {
+
+            console.log(
+                error.response?.data ||
+                error.message
+            );
+
+            toast.error(
+                "Sort Failed"
+            );
+        }
+    }
+
     // logout
+
     function handleLogout() {
 
-        localStorage.removeItem("token");
+        localStorage.removeItem(
+            "token"
+        );
 
-        toast.success("Logged Out");
+        toast.success(
+            "Logged Out"
+        );
 
         navigate("/", {
             replace: true,
@@ -149,7 +311,7 @@ function DashboardPage() {
 
         fetchExpenses();
 
-    }, []);
+    }, [page, sizeInput]);
 
     return (
 
@@ -194,6 +356,174 @@ function DashboardPage() {
 
             </div>
 
+            {/* controls */}
+
+            <div className="grid md:grid-cols-3 gap-4 mb-8">
+
+                {/* search */}
+
+                <div className="flex gap-2">
+
+                    <input
+                        type="text"
+                        placeholder="Search Expenses"
+                        value={searchKeyword}
+                        onChange={(e) =>
+                            setSearchKeyword(
+                                e.target.value
+                            )
+                        }
+                        className="bg-zinc-800 p-3 rounded-xl outline-none w-full"
+                    />
+
+                    <button
+                        onClick={handleSearch}
+                        className="bg-blue-600 px-4 rounded-xl"
+                    >
+                        Search
+                    </button>
+
+                </div>
+
+                {/* filter */}
+
+                <div className="flex flex-col gap-2">
+
+                    <select
+                        value={filterCategory}
+                        onChange={(e) => {
+
+                            setFilterCategory(
+                                e.target.value
+                            );
+                        }}
+                        className="bg-zinc-800 p-3 rounded-xl outline-none"
+                    >
+
+                        <option value="">
+                            All Categories
+                        </option>
+
+                        <option value="Food">
+                            Food
+                        </option>
+
+                        <option value="Travel">
+                            Travel
+                        </option>
+
+                        <option value="Shopping">
+                            Shopping
+                        </option>
+
+                        <option value="Bills">
+                            Bills
+                        </option>
+
+                        <option value="Entertainment">
+                            Entertainment
+                        </option>
+
+                        <option value="Other">
+                            Other
+                        </option>
+
+                    </select>
+
+                    {filterCategory === "Other" && (
+
+                        <input
+                            type="text"
+                            placeholder="Enter Custom Category"
+                            value={customFilterCategory}
+                            onChange={(e) =>
+                                setCustomFilterCategory(
+                                    e.target.value
+                                )
+                            }
+                            className="bg-zinc-800 p-3 rounded-xl outline-none"
+                        />
+
+                    )}
+
+                </div>
+
+                <button
+                    onClick={handleFilter}
+                    className="bg-green-600 rounded-xl"
+                >
+                    Apply Filter
+                </button>
+
+            </div>
+
+            {/* sorting */}
+
+            <div className="flex flex-wrap gap-3 mb-8">
+
+                <button
+                    onClick={() =>
+                        handleSort("amount")
+                    }
+                    className="bg-zinc-800 px-4 py-2 rounded-xl"
+                >
+                    Sort By Amount
+                </button>
+
+                <button
+                    onClick={() =>
+                        handleSort("date")
+                    }
+                    className="bg-zinc-800 px-4 py-2 rounded-xl"
+                >
+                    Sort By Date
+                </button>
+
+                <button
+                    onClick={() =>
+                        handleSort("title")
+                    }
+                    className="bg-zinc-800 px-4 py-2 rounded-xl"
+                >
+                    Sort By Title
+                </button>
+
+                <button
+                    onClick={fetchExpenses}
+                    className="bg-blue-600 px-4 py-2 rounded-xl"
+                >
+                    Reset
+                </button>
+
+            </div>
+
+            {/* entries per page */}
+
+            <div className="flex items-center gap-3 mb-8">
+
+                <label className="text-zinc-400">
+
+                    Entries Per Page
+
+                </label>
+
+                <input
+                    type="text"
+                    value={sizeInput}
+                    onChange={(e) => {
+
+                        setPage(0);
+
+                        setSizeInput(
+                            e.target.value
+                        );
+                    }}
+                    placeholder="5 or all"
+                    className="bg-zinc-800 p-2 rounded-xl outline-none w-32"
+                />
+
+            </div>
+
             {/* add expense form */}
 
             <form
@@ -227,12 +557,14 @@ function DashboardPage() {
                     required
                 />
 
-                {/* category dropdown */}
+                {/* category */}
 
                 <select
                     value={category}
                     onChange={(e) =>
-                        setCategory(e.target.value)
+                        setCategory(
+                            e.target.value
+                        )
                     }
                     className="bg-zinc-800 p-3 rounded-xl outline-none"
                     required
@@ -296,8 +628,8 @@ function DashboardPage() {
                         Date
 
                         <span className="text-zinc-500 ml-2">
-              (Optional)
-            </span>
+                            (Optional)
+                        </span>
 
                     </label>
 
@@ -326,8 +658,10 @@ function DashboardPage() {
 
                 {expenses.length === 0 ? (
 
-                    <div className="text-zinc-400">
+                    <div className="text-zinc-400 text-center">
+
                         No expenses found
+
                     </div>
 
                 ) : (
@@ -354,7 +688,8 @@ function DashboardPage() {
                                 </p>
 
                                 <p className="text-zinc-500 text-sm">
-                                    {expense.date || "No Date"}
+                                    {expense.date ||
+                                        "No Date"}
                                 </p>
 
                             </div>
@@ -373,6 +708,35 @@ function DashboardPage() {
                         </div>
                     ))
                 )}
+
+            </div>
+
+            {/* pagination */}
+
+            <div className="flex justify-center gap-4 mt-8">
+
+                <button
+                    disabled={page === 0}
+                    onClick={() =>
+                        setPage(page - 1)
+                    }
+                    className="bg-zinc-800 px-4 py-2 rounded-xl disabled:opacity-50"
+                >
+                    Previous
+                </button>
+
+                <span className="flex items-center">
+                    Page {page + 1}
+                </span>
+
+                <button
+                    onClick={() =>
+                        setPage(page + 1)
+                    }
+                    className="bg-zinc-800 px-4 py-2 rounded-xl"
+                >
+                    Next
+                </button>
 
             </div>
 
