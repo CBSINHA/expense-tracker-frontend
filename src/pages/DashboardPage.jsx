@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import { useNavigate } from "react-router-dom";
 
 import toast from "react-hot-toast";
@@ -9,8 +10,48 @@ function DashboardPage() {
 
     const navigate = useNavigate();
 
+    // expenses
+
     const [expenses, setExpenses] =
         useState([]);
+
+    // loading
+
+    const [loading, setLoading] =
+        useState(false);
+
+    // pagination
+
+    const [page, setPage] =
+        useState(0);
+
+    const [sizeInput, setSizeInput] =
+        useState("5");
+
+    const [size, setSize] =
+        useState(5);
+
+    const [showAll, setShowAll] =
+        useState(false);
+
+    // search
+
+    const [searchKeyword,
+        setSearchKeyword] =
+        useState("");
+
+    // filter
+
+    const [filterCategory,
+        setFilterCategory] =
+        useState("");
+
+    const [
+        customFilterCategory,
+        setCustomFilterCategory
+    ] = useState("");
+
+    // add form
 
     const [title, setTitle] =
         useState("");
@@ -29,24 +70,21 @@ function DashboardPage() {
     const [date, setDate] =
         useState("");
 
-    const [searchKeyword,
-        setSearchKeyword] =
-        useState("");
+    // editing
 
-    const [filterCategory,
-        setFilterCategory] =
-        useState("");
+    const [editingId, setEditingId] =
+        useState(null);
 
-    const [
-        customFilterCategory,
-        setCustomFilterCategory
-    ] = useState("");
+    const [editData, setEditData] =
+        useState({
 
-    const [page, setPage] =
-        useState(0);
+            title: "",
+            amount: "",
+            category: "",
+            date: "",
+        });
 
-    const [sizeInput, setSizeInput] =
-        useState("5");
+    // total expense
 
     const totalExpenses =
         expenses.reduce(
@@ -55,34 +93,35 @@ function DashboardPage() {
             0
         );
 
-    // fetch paginated expenses
+    // fetch expenses
 
     async function fetchExpenses() {
 
         try {
 
-            // show all entries
+            setLoading(true);
 
-            if (
-                sizeInput.toLowerCase() === "all"
-            ) {
+            // show all
+
+            if (showAll) {
 
                 const response =
                     await api.get(
                         "/expenses"
                     );
 
-                setExpenses(response.data);
+                setExpenses(
+                    response.data
+                );
 
                 return;
             }
 
-            const parsedSize =
-                Number(sizeInput);
+            // paginated
 
             const response =
                 await api.get(
-                    `/expenses/paginated?page=${page}&size=${parsedSize}`
+                    `/expenses/paginated?page=${page}&size=${size}`
                 );
 
             setExpenses(
@@ -99,8 +138,20 @@ function DashboardPage() {
             toast.error(
                 "Failed To Fetch Expenses"
             );
+
+        } finally {
+
+            setLoading(false);
         }
     }
+
+    // initial fetch
+
+    useEffect(() => {
+
+        fetchExpenses();
+
+    }, [page, size, showAll]);
 
     // add expense
 
@@ -185,12 +236,88 @@ function DashboardPage() {
             );
 
             toast.error(
-                "Failed To Delete Expense"
+                "Delete Failed"
             );
         }
     }
 
-    // search expenses
+    // edit expense
+
+    async function handleEdit(id) {
+
+        try {
+
+            const response =
+                await api.get(
+                    `/expenses/${id}`
+                );
+
+            const expense =
+                response.data;
+
+            setEditingId(id);
+
+            setEditData({
+
+                title:
+                expense.title,
+
+                amount:
+                expense.amount,
+
+                category:
+                expense.category,
+
+                date:
+                    expense.date || "",
+            });
+
+        } catch (error) {
+
+            console.log(
+                error.response?.data ||
+                error.message
+            );
+
+            toast.error(
+                "Failed To Load Expense"
+            );
+        }
+    }
+
+    // update expense
+
+    async function handleUpdate(id) {
+
+        try {
+
+            await api.put(
+                `/expenses/${id}`,
+                editData
+            );
+
+            toast.success(
+                "Expense Updated"
+            );
+
+            setEditingId(null);
+
+            fetchExpenses();
+
+        } catch (error) {
+
+            console.log(
+                error.response?.data ||
+                error.message
+            );
+
+            toast.error(
+                "Update Failed"
+            );
+        }
+    }
+
+    // search
 
     async function handleSearch() {
 
@@ -204,12 +331,16 @@ function DashboardPage() {
                 return;
             }
 
+            setLoading(true);
+
             const response =
                 await api.get(
                     `/expenses/search?keyword=${searchKeyword}`
                 );
 
-            setExpenses(response.data);
+            setExpenses(
+                response.data
+            );
 
         } catch (error) {
 
@@ -221,10 +352,14 @@ function DashboardPage() {
             toast.error(
                 "Search Failed"
             );
+
+        } finally {
+
+            setLoading(false);
         }
     }
 
-    // filter expenses
+    // filter
 
     async function handleFilter() {
 
@@ -244,12 +379,16 @@ function DashboardPage() {
                     ? customFilterCategory
                     : filterCategory;
 
+            setLoading(true);
+
             const response =
                 await api.get(
                     `/expenses/category/${categoryToFilter}`
                 );
 
-            setExpenses(response.data);
+            setExpenses(
+                response.data
+            );
 
         } catch (error) {
 
@@ -261,21 +400,29 @@ function DashboardPage() {
             toast.error(
                 "Filter Failed"
             );
+
+        } finally {
+
+            setLoading(false);
         }
     }
 
-    // sort expenses
+    // sort
 
     async function handleSort(field) {
 
         try {
+
+            setLoading(true);
 
             const response =
                 await api.get(
                     `/expenses/sorted/${field}`
                 );
 
-            setExpenses(response.data);
+            setExpenses(
+                response.data
+            );
 
         } catch (error) {
 
@@ -287,7 +434,58 @@ function DashboardPage() {
             toast.error(
                 "Sort Failed"
             );
+
+        } finally {
+
+            setLoading(false);
         }
+    }
+
+    // reset
+
+    function handleReset() {
+
+        setSearchKeyword("");
+
+        setFilterCategory("");
+
+        setCustomFilterCategory("");
+
+        setPage(0);
+
+        fetchExpenses();
+    }
+
+    // pagination size apply
+
+    function handleApplySize() {
+
+        if (
+            sizeInput === "" ||
+            Number(sizeInput) <= 0
+        ) {
+
+            toast.error(
+                "Enter Valid Number"
+            );
+
+            return;
+        }
+
+        setPage(0);
+
+        setShowAll(false);
+
+        setSize(
+            Number(sizeInput)
+        );
+    }
+
+    // show all
+
+    function handleShowAll() {
+
+        setShowAll(true);
     }
 
     // logout
@@ -306,12 +504,6 @@ function DashboardPage() {
             replace: true,
         });
     }
-
-    useEffect(() => {
-
-        fetchExpenses();
-
-    }, [page, sizeInput]);
 
     return (
 
@@ -342,7 +534,7 @@ function DashboardPage() {
 
             </div>
 
-            {/* total expenses */}
+            {/* total */}
 
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 mb-8">
 
@@ -391,12 +583,11 @@ function DashboardPage() {
 
                     <select
                         value={filterCategory}
-                        onChange={(e) => {
-
+                        onChange={(e) =>
                             setFilterCategory(
                                 e.target.value
-                            );
-                        }}
+                            )
+                        }
                         className="bg-zinc-800 p-3 rounded-xl outline-none"
                     >
 
@@ -434,7 +625,7 @@ function DashboardPage() {
 
                         <input
                             type="text"
-                            placeholder="Enter Custom Category"
+                            placeholder="Custom Category"
                             value={customFilterCategory}
                             onChange={(e) =>
                                 setCustomFilterCategory(
@@ -489,7 +680,7 @@ function DashboardPage() {
                 </button>
 
                 <button
-                    onClick={fetchExpenses}
+                    onClick={handleReset}
                     className="bg-blue-600 px-4 py-2 rounded-xl"
                 >
                     Reset
@@ -497,9 +688,9 @@ function DashboardPage() {
 
             </div>
 
-            {/* entries per page */}
+            {/* pagination controls */}
 
-            <div className="flex items-center gap-3 mb-8">
+            <div className="flex items-center gap-3 mb-8 flex-wrap">
 
                 <label className="text-zinc-400">
 
@@ -508,23 +699,34 @@ function DashboardPage() {
                 </label>
 
                 <input
-                    type="text"
+                    type="number"
+                    min="1"
                     value={sizeInput}
-                    onChange={(e) => {
-
-                        setPage(0);
-
+                    onChange={(e) =>
                         setSizeInput(
                             e.target.value
-                        );
-                    }}
-                    placeholder="5 or all"
-                    className="bg-zinc-800 p-2 rounded-xl outline-none w-32"
+                        )
+                    }
+                    className="bg-zinc-800 p-2 rounded-xl outline-none w-24"
                 />
+
+                <button
+                    onClick={handleApplySize}
+                    className="bg-blue-600 px-4 py-2 rounded-xl"
+                >
+                    Apply
+                </button>
+
+                <button
+                    onClick={handleShowAll}
+                    className="bg-green-600 px-4 py-2 rounded-xl"
+                >
+                    Show All
+                </button>
 
             </div>
 
-            {/* add expense form */}
+            {/* add expense */}
 
             <form
                 onSubmit={handleAddExpense}
@@ -600,13 +802,11 @@ function DashboardPage() {
 
                 </select>
 
-                {/* custom category */}
-
                 {category === "Other" && (
 
                     <input
                         type="text"
-                        placeholder="Enter Custom Category"
+                        placeholder="Custom Category"
                         value={customCategory}
                         onChange={(e) =>
                             setCustomCategory(
@@ -652,93 +852,215 @@ function DashboardPage() {
 
             </form>
 
-            {/* expenses list */}
+            {/* loading */}
+
+            {loading && (
+
+                <div className="text-center text-zinc-400 mb-6">
+
+                    Loading...
+
+                </div>
+
+            )}
+
+            {/* expenses */}
 
             <div className="grid gap-4">
 
-                {expenses.length === 0 ? (
+                {!loading &&
+                    expenses.length === 0 && (
 
-                    <div className="text-zinc-400 text-center">
+                        <div className="text-zinc-400 text-center">
 
-                        No expenses found
+                            No expenses found
 
-                    </div>
+                        </div>
 
-                ) : (
+                    )}
 
-                    expenses.map((expense) => (
+                {expenses.map((expense) => (
 
-                        <div
-                            key={expense.id}
-                            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex justify-between items-center"
-                        >
+                    <div
+                        key={expense.id}
+                        className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5"
+                    >
 
-                            <div>
+                        {editingId === expense.id ? (
 
-                                <h3 className="text-xl font-semibold">
-                                    {expense.title}
-                                </h3>
+                            <div className="flex flex-col gap-3">
 
-                                <p className="text-zinc-400">
-                                    ₹ {expense.amount}
-                                </p>
+                                <input
+                                    type="text"
+                                    value={editData.title}
+                                    onChange={(e) =>
+                                        setEditData({
+                                            ...editData,
+                                            title:
+                                            e.target.value,
+                                        })
+                                    }
+                                    className="bg-zinc-800 p-3 rounded-xl"
+                                />
 
-                                <p className="text-zinc-500 text-sm">
-                                    {expense.category}
-                                </p>
+                                <input
+                                    type="number"
+                                    value={editData.amount}
+                                    onChange={(e) =>
+                                        setEditData({
+                                            ...editData,
+                                            amount:
+                                            e.target.value,
+                                        })
+                                    }
+                                    className="bg-zinc-800 p-3 rounded-xl"
+                                />
 
-                                <p className="text-zinc-500 text-sm">
-                                    {expense.date ||
-                                        "No Date"}
-                                </p>
+                                <input
+                                    type="text"
+                                    value={editData.category}
+                                    onChange={(e) =>
+                                        setEditData({
+                                            ...editData,
+                                            category:
+                                            e.target.value,
+                                        })
+                                    }
+                                    className="bg-zinc-800 p-3 rounded-xl"
+                                />
+
+                                <input
+                                    type="date"
+                                    value={editData.date}
+                                    onChange={(e) =>
+                                        setEditData({
+                                            ...editData,
+                                            date:
+                                            e.target.value,
+                                        })
+                                    }
+                                    className="bg-zinc-800 p-3 rounded-xl"
+                                />
+
+                                <div className="flex gap-2">
+
+                                    <button
+                                        onClick={() =>
+                                            handleUpdate(
+                                                expense.id
+                                            )
+                                        }
+                                        className="bg-green-600 px-4 py-2 rounded-xl"
+                                    >
+                                        Save
+                                    </button>
+
+                                    <button
+                                        onClick={() =>
+                                            setEditingId(null)
+                                        }
+                                        className="bg-zinc-700 px-4 py-2 rounded-xl"
+                                    >
+                                        Cancel
+                                    </button>
+
+                                </div>
 
                             </div>
 
-                            <button
-                                onClick={() =>
-                                    handleDelete(
-                                        expense.id
-                                    )
-                                }
-                                className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl"
-                            >
-                                Delete
-                            </button>
+                        ) : (
 
-                        </div>
-                    ))
-                )}
+                            <div className="flex justify-between items-center">
+
+                                <div>
+
+                                    <h3 className="text-xl font-semibold">
+                                        {expense.title}
+                                    </h3>
+
+                                    <p className="text-zinc-400">
+                                        ₹ {expense.amount}
+                                    </p>
+
+                                    <p className="text-zinc-500 text-sm">
+                                        {expense.category}
+                                    </p>
+
+                                    <p className="text-zinc-500 text-sm">
+                                        {expense.date ||
+                                            "No Date"}
+                                    </p>
+
+                                </div>
+
+                                <div className="flex gap-2">
+
+                                    <button
+                                        onClick={() =>
+                                            handleEdit(
+                                                expense.id
+                                            )
+                                        }
+                                        className="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-xl"
+                                    >
+                                        Edit
+                                    </button>
+
+                                    <button
+                                        onClick={() =>
+                                            handleDelete(
+                                                expense.id
+                                            )
+                                        }
+                                        className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl"
+                                    >
+                                        Delete
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+                        )}
+
+                    </div>
+
+                ))}
 
             </div>
 
             {/* pagination */}
 
-            <div className="flex justify-center gap-4 mt-8">
+            {!showAll && (
 
-                <button
-                    disabled={page === 0}
-                    onClick={() =>
-                        setPage(page - 1)
-                    }
-                    className="bg-zinc-800 px-4 py-2 rounded-xl disabled:opacity-50"
-                >
-                    Previous
-                </button>
+                <div className="flex justify-center gap-4 mt-8">
 
-                <span className="flex items-center">
-                    Page {page + 1}
-                </span>
+                    <button
+                        disabled={page === 0}
+                        onClick={() =>
+                            setPage(page - 1)
+                        }
+                        className="bg-zinc-800 px-4 py-2 rounded-xl disabled:opacity-50"
+                    >
+                        Previous
+                    </button>
 
-                <button
-                    onClick={() =>
-                        setPage(page + 1)
-                    }
-                    className="bg-zinc-800 px-4 py-2 rounded-xl"
-                >
-                    Next
-                </button>
+                    <span className="flex items-center">
+                        Page {page + 1}
+                    </span>
 
-            </div>
+                    <button
+                        onClick={() =>
+                            setPage(page + 1)
+                        }
+                        className="bg-zinc-800 px-4 py-2 rounded-xl"
+                    >
+                        Next
+                    </button>
+
+                </div>
+
+            )}
 
         </div>
     );
